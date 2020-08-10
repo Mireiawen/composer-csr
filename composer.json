@@ -1,0 +1,26 @@
+{
+	"name": "mireiawen/csr",
+	"description": "Certificate signing request (CSR) parser",
+	"type": "library",
+	"license": "MIT",
+	"authors": [
+		{
+			"name": "Mira Manninen",
+			"email": "mir@mireiawen.net"
+		}
+	],
+	"minimum-stability": "dev",
+	"require": {
+		"php": ">=7.3.0",
+		"ext-gettext": "*",
+		"ext-openssl": "*"
+	},
+	"require-dev": {
+		"roave/security-advisories": "dev-master"
+	},
+	"autoload": {
+		"psr-4": {
+			"Mireiawen\\CSR\\": "includes"
+		}
+	}
+}
