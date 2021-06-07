@@ -54,11 +54,35 @@ class CSR
 			throw new OpenSSLException(\_('when reading public key details'));
 		}
 		
+		switch ($details['type'])
+		{
+		case OPENSSL_KEYTYPE_RSA:
+			$key_type = 'RSA';
+			break;
+			
+		case OPENSSL_KEYTYPE_DSA:
+			$key_type = 'DSA';
+			break;
+			
+		case OPENSSL_KEYTYPE_DH:
+			$key_type = 'DH';
+			break;
+			
+		case OPENSSL_KEYTYPE_EC:
+			$key_type = 'EC';
+			break;
+			
+		default:
+			$key_type = 'Unknown';
+			break;
+		}
+		
 		// Create the parse result array
 		return
 			[
 				'subject' => $subject,
 				'key' => $details['key'],
+				'type' => $key_type,
 				'bits' => $details['bits'],
 				'pem' => $csr,
 				'sans' => self::GetSANS($csr),
