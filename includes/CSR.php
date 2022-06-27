@@ -3,6 +3,8 @@ declare(strict_types = 1);
 
 namespace Mireiawen\CSR;
 
+use JetBrains\PhpStorm\ArrayShape;
+
 /**
  * Helper class to parse Certificate Signing Requests
  *
@@ -11,14 +13,50 @@ namespace Mireiawen\CSR;
 class CSR
 {
 	/**
+	 * The OpenSSL certificate subject array
+	 *
+	 * @var array
+	 */
+	protected array $subject;
+	
+	/**
+	 * The OpenSSL certificate key type
+	 *
+	 * @var int
+	 */
+	protected int $key;
+	
+	/**
+	 * The OpenSSL certificate key bits
+	 *
+	 * @var int
+	 */
+	protected int $bits;
+	
+	/**
+	 * The OpenSSL certificate signing request in PEM format
+	 *
+	 * @var string
+	 */
+	protected string $pem;
+	
+	/**
+	 * The SANs (Subject Alternative Names) extracted from the request
+	 *
+	 * @var array
+	 */
+	#[ArrayShape(['DNS' => "array", 'IP Address' => "array", 'email' => "array"])]
+	protected array $sans;
+	
+	/**
 	 * @param string $csr
 	 *    The certificate request to parse
 	 *
-	 * @return array
-	 *    The fields parsed
+	 * @return self
+	 *    The CSR object
 	 *
 	 * @throws \InvalidArgumentException
-	 *    In case the certificate request does not contain the BEGIN line
+	 *    In case the certificate request does not contain the "begin certificate request" -line
 	 *
 	 * @throws FileSystemException
 	 *    In case of unable to use temporary file
@@ -26,9 +64,9 @@ class CSR
 	 * @throws CommandException
 	 *    In case of unable to execute openssl command
 	 */
-	public static function Parse(string $csr) : array
+	public static function Parse(string $csr) : self
 	{
-		if (\strpos($csr, 'BEGIN CERTIFICATE REQUEST') === FALSE)
+		if (!str_contains($csr, 'BEGIN CERTIFICATE REQUEST'))
 		{
 			throw new \InvalidArgumentException(\_('Unable to detect BEGIN CERTIFICATE REQUEST'));
 		}
@@ -54,49 +92,87 @@ class CSR
 			throw new OpenSSLException(\_('when reading public key details'));
 		}
 		
-		switch ($details['type'])
+		// Create the resulting object
+		return new self($subject, $details['type'], $details['bits'], $csr);
+	}
+	
+	/**
+	 * Create instance of the CSR object
+	 *
+	 * @param array $subject
+	 * @param int $key
+	 * @param int $bits
+	 * @param string $csr
+	 */
+	protected function __construct(array $subject, int $key, int $bits, string $csr)
+	{
+		$this->subject = $subject;
+		$this->key = $key;
+		$this->bits = $bits;
+		$this->pem = $csr;
+		$this->ReadSANs();
+	}
+	
+	/**
+	 * Get the OpenSSL certificate subject array
+	 *
+	 * @return array
+	 */
+	public function GetSubject() : array
+	{
+		return $this->subject;
+	}
+	
+	/**
+	 * Get the OpenSSL key type integer
+	 *
+	 * @return int
+	 */
+	public function GetKeyType() : int
+	{
+		return $this->key;
+	}
+	
+	/**
+	 * Get the key type as string
+	 *
+	 * @return string
+	 */
+	public function GetKeyTypeString() : string
+	{
+		return match ($this->key)
 		{
-		case OPENSSL_KEYTYPE_RSA:
-			$key_type = 'RSA';
-			break;
-			
-		case OPENSSL_KEYTYPE_DSA:
-			$key_type = 'DSA';
-			break;
-			
-		case OPENSSL_KEYTYPE_DH:
-			$key_type = 'DH';
-			break;
-			
-		case OPENSSL_KEYTYPE_EC:
-			$key_type = 'EC';
-			break;
-			
-		default:
-			$key_type = 'Unknown';
-			break;
-		}
-		
-		// Create the parse result array
-		return
-			[
-				'subject' => $subject,
-				'key' => $details['key'],
-				'type' => $key_type,
-				'bits' => $details['bits'],
-				'pem' => $csr,
-				'sans' => self::GetSANS($csr),
-			];
+			OPENSSL_KEYTYPE_RSA => 'RSA',
+			OPENSSL_KEYTYPE_DSA => 'DSA',
+			OPENSSL_KEYTYPE_DH => 'DH',
+			OPENSSL_KEYTYPE_EC => 'EC',
+			default => 'Unknown',
+		};
+	}
+	
+	/**
+	 * Get the certificate signing request in PEM format
+	 *
+	 * @return string
+	 */
+	public function GetPEM() : string
+	{
+		return $this->pem;
+	}
+	
+	/**
+	 * Get the SANs from the certificate
+	 *
+	 * @return array
+	 */
+	#[ArrayShape(['DNS' => "array", 'IP Address' => "array", 'email' => "array"])]
+	public function GetSANs() : array
+	{
+		return $this->sans;
 	}
 	
 	/**
 	 * Get the SAN fields from CSR text
-	 *
-	 * @param string $csr
-	 *    The CSR text to read
-	 *
-	 * @return string[]
-	 *    The array of Subject Alternative Names
 	 *
 	 * @throws FileSystemException
 	 *    In case of unable to use temporary file
@@ -104,16 +180,16 @@ class CSR
 	 * @throws CommandException
 	 *    In case of unable to execute openssl command
 	 */
-	public static function GetSANS(string $csr) : array
+	protected function ReadSANs() : void
 	{
 		// Write the CSR to a temporary file
 		$temp_csr = \tempnam(\sys_get_temp_dir(), 'csr');
 		if ($temp_csr === FALSE)
 		{
-			throw new FileSystemException(\sprintf(\_('Unable to create a temporary file %s'), $temp_csr));
+			throw new FileSystemException(\_('Unable to create a temporary file'));
 		}
 		
-		if (\file_put_contents($temp_csr, $csr) === FALSE)
+		if (\file_put_contents($temp_csr, $this->pem) === FALSE)
 		{
 			\unlink($temp_csr);
 			throw new FileSystemException(\sprintf(\_('Unable to write to the temporary file'), $temp_csr));
@@ -142,12 +218,12 @@ class CSR
 		];
 		
 		// Do the actual parsing
-		foreach (self::ParseSAN($output) as $item => $value)
+		foreach ($this->ParseSAN($output) as $item => $value)
 		{
 			$sans[$item][] = $value;
 		}
 		
-		return $sans;
+		$this->sans = $sans;
 	}
 	
 	/**
@@ -158,7 +234,7 @@ class CSR
 	 *
 	 * @return \Generator
 	 */
-	protected static function ParseSAN(string $data) : \Generator
+	private function ParseSAN(string $data) : \Generator
 	{
 		$sans = \explode(',', $data);
 		
@@ -172,7 +248,7 @@ class CSR
 			}
 			
 			// String without the expected key:value -pair, ignore
-			if (\strpos($san, ':') === FALSE)
+			if (!str_contains($san, ':'))
 			{
 				continue;
 			}
