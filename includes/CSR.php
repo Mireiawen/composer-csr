@@ -211,6 +211,16 @@ class CSR
 	}
 	
 	/**
+	 * Get the key size in bits
+	 *
+	 * @return int
+	 */
+	public function GetKeyBits() : int
+	{
+		return $this->bits;
+	}
+	
+	/**
 	 * Get the certificate signing request in PEM format
 	 *
 	 * @return string
