@@ -72,7 +72,7 @@ class CSR
 		}
 		
 		// Read the subject
-		$subject = \openssl_csr_get_subject($csr);
+		$subject = \openssl_csr_get_subject($csr, TRUE);
 		if ($subject === FALSE)
 		{
 			throw new OpenSSLException(\_('when reading subject'));
@@ -121,6 +121,66 @@ class CSR
 	public function GetSubject() : array
 	{
 		return $this->subject;
+	}
+	
+	/**
+	 * Get the country from the subject
+	 *
+	 * @return string
+	 */
+	public function GetCountry() : string
+	{
+		return $this->subject['C'] ?? '';
+	}
+	
+	/**
+	 * Get the locality from the subject
+	 *
+	 * @return string
+	 */
+	public function GetLocality() : string
+	{
+		return $this->subject['L'] ?? '';
+	}
+	
+	/**
+	 * Get the organization from the subject
+	 *
+	 * @return string
+	 */
+	public function GetOrganization() : string
+	{
+		return $this->subject['O'] ?? '';
+	}
+	
+	/**
+	 * Get the organization unit from the subject
+	 *
+	 * @return string
+	 */
+	public function GetOrganizationUnit() : string
+	{
+		return $this->subject['OU'] ?? '';
+	}
+	
+	/**
+	 * Get the common name from the subject
+	 *
+	 * @return string
+	 */
+	public function GetCommonName() : string
+	{
+		return $this->subject['CN'] ?? '';
+	}
+	
+	/**
+	 * Get the email from the subject
+	 *
+	 * @return string
+	 */
+	public function GetEmail() : string
+	{
+		return $this->subject['emailAddress'] ?? '';
 	}
 	
 	/**
